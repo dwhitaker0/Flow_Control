@@ -74,7 +74,7 @@ logger.addHandler(file_handler)
 #Pump
 
 Pump1 = PHDPump.sPump("COM6")
-Pump2 = PHDPump.sPump("COM8")
+Pump2 = PHDPump.sPump("COM7")
 #Dilution_pump = connect_here
 logger.info("Connected to Pumps")
 
@@ -102,15 +102,14 @@ def start_reference():
 
 	
 
-def run_experiment():
+def start_experiment():
 	global wl
 	global raw_spectral_data
 	global refd_spectral_data
 	global start_time
 	global spec_time
 	global lambda_max
-	stored_exeption = None
-	
+
 	wl = spec.wavelengths()
 	raw_spectral_data = spec.wavelengths()
 	Abs_spectral_data = spec.wavelengths()
@@ -158,30 +157,21 @@ def run_experiment():
 	
 	
 	while (float(time.time()) < start_time+float(experiment_time)):
-		try:	
+		spectrum = spec.intensities()
+		sp_time = time.time() 
+		raw_spectral_data = np.vstack((raw_spectral_data, spectrum))
+		Abs_spectral_data = np.vstack((Abs_spectral_data, np.log10((reference - dark_ref)/(spectrum - dark_ref))))
+		spec_time =  np.append(spec_time, [sp_time-start_time])
+		curr_lambda_max = np.amax(spectrum - reference)
+		lambda_max = np.append(lambda_max, [curr_lambda_max])
 		
-			spectrum = spec.intensities()
-			sp_time = time.time() 
-			raw_spectral_data = np.vstack((raw_spectral_data, spectrum))
-			Abs_spectral_data = np.vstack((Abs_spectral_data, np.log10((reference - dark_ref)/(spectrum - dark_ref))))
-			spec_time =  np.append(spec_time, [sp_time-start_time])
-			curr_lambda_max = np.amax(spectrum - reference)
-			lambda_max = np.append(lambda_max, [curr_lambda_max])
-			
-			#Update Plot
-			
-			p1.setData(wl,np.log10((reference - dark_ref)/(spectrum - dark_ref)))
-			p2.setData(spec_time, lambda_max)
-			pg.QtGui.QApplication.processEvents()
-			
-			time.sleep((spectral_int_time/1000000)+0.05)
-			
-			if stored_exeption:
-				break
-			
-		except KeyboardInterrupt:
-			logger.info("Experiment Interrupted at: " + time.strftime("%H:%M:%S | %d-%m-%Y"))
-			stored_exeption = sys.exc_info()
+		#Update Plot
+		
+		p1.setData(wl,np.log10((reference - dark_ref)/(spectrum - dark_ref)))
+		p2.setData(spec_time, lambda_max)
+		pg.QtGui.QApplication.processEvents()
+		
+		time.sleep((spectral_int_time/1000000)+0.05)
 		
 	logger.info("Experiment complete at: " + time.strftime("%H:%M:%S | %d-%m-%Y"))
 	Pump1.stop()
@@ -204,19 +194,17 @@ def run_experiment():
 ## RUNNING CODE ##
 ###############
 input("Close light shutter and push enter . . . ")
-time.sleep(0.5)
+time.sleep(5)
 start_dark_reference()
 input("Open light shutter and push enter . . . ")
 input("Start dilution pump and push enter when ready to take reference . . .")
 start_reference()
 logger.info ("Reference Acquired at: " + time.strftime("%H:%M:%S | %d-%m-%Y"))
 input("Push Enter to Start Experiment. . . ")
-run_experiment()
+start_experiment()
 Pump1.disconnect()
 Pump2.disconnect()
 exit()
-
-
 	
 if __name__ == '__main__':
     import sys

@@ -7,6 +7,8 @@ import os
 import sys
 import numpy as np
 import serial
+import Python_ChemFuncts as CF
+
 
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui
@@ -98,25 +100,34 @@ def start_reference():
 	reference = spec.intensities()
 	#time.sleep(1)
 	#Dilution_pump.stop()
-
-
+	
+def find_nearest(array, value):
+    array = np.asarray(array)
+    idx = (np.abs(array - value)).argmin()
+    return array[idx]
 	
 
-def run_experiment():
+def start_experiment():
 	global wl
 	global raw_spectral_data
 	global refd_spectral_data
 	global start_time
 	global spec_time
 	global lambda_max
-	stored_exeption = None
+	global smooth
+	#global SGderiv
+	global peak_ratio
 	
+	stored_exeption = None
+
 	wl = spec.wavelengths()
 	raw_spectral_data = spec.wavelengths()
 	Abs_spectral_data = spec.wavelengths()
+	#SGderiv = spec.wavelengths()
 	spec_time = np.array(0) 
 	start_time = time.time()
 	lambda_max = np.array(0)
+	ratio = np.array(0)
 	logger.info ("Experiment started at: " + time.strftime("%H:%M:%S | %d-%m-%Y"))
 	
 	#set-up and start pump
@@ -149,9 +160,9 @@ def run_experiment():
 	pw.setYRange(-2,2,padding=0)
 	pw.setLabel('left', 'Absorbance', units='Arbitr. Units')
 	pw.setLabel('bottom', 'Wavelength', units='nm')
-	p2 = pw2.plot(pen=2, symbol = 'o', symbolPen = 2, title="Lambda Max Vs Time")
+	p2 = pw2.plot(pen=2, symbol = 'o', symbolPen = 2, title="Ratio Vs Time")
 	pw2.enableAutoRange(enable=True)
-	pw2.setLabel('left', 'Max Intensity', units='Arbitr. Units')
+	pw2.setLabel('left', 'Ratio', units='Arbitr. Units')
 	pw2.setLabel('bottom', 'Time', units='s')
 	
 	
@@ -161,17 +172,28 @@ def run_experiment():
 		try:	
 		
 			spectrum = spec.intensities()
+			abs_spectrum = np.log10((reference - dark_ref)/(spectrum - dark_ref))
+			Where_Nan = np.isnan(abs_spectrum)
+			Where_Inf = np.isinf(abs_spectrum)
+			abs_spectrum[Where_Nan] = 0
+			abs_spectrum[Where_Inf] = 0
+			smooth = CF.whitsm(abs_spectrum, lmda = 100)
+			deriv_spectrum = CF.savitzky_golay(smooth, window_size = 15, order = 1, deriv=1, rate=1)
 			sp_time = time.time() 
 			raw_spectral_data = np.vstack((raw_spectral_data, spectrum))
-			Abs_spectral_data = np.vstack((Abs_spectral_data, np.log10((reference - dark_ref)/(spectrum - dark_ref))))
+			Abs_spectral_data = np.vstack((Abs_spectral_data, abs_spectrum))
 			spec_time =  np.append(spec_time, [sp_time-start_time])
 			curr_lambda_max = np.amax(spectrum - reference)
-			lambda_max = np.append(lambda_max, [curr_lambda_max])
+			lambda_max = np.append(lambda_max, [curr_lambda_max])			
+			#SGderiv = np.vstack(SGderiv, deriv_spectrum)
+			ratio = np.append(ratio, (deriv_spectrum[wl == find_nearest(wl,260)] + deriv_spectrum[wl == find_nearest(wl,290)] ) / deriv_spectrum[wl == find_nearest(wl,310)])
+			
 			
 			#Update Plot
 			
-			p1.setData(wl,np.log10((reference - dark_ref)/(spectrum - dark_ref)))
-			p2.setData(spec_time, lambda_max)
+			#p1.setData(wl,np.log10((reference - dark_ref)/(spectrum - dark_ref)))
+			p1.setData(wl,smooth)
+			p2.setData(spec_time, ratio)
 			pg.QtGui.QApplication.processEvents()
 			
 			time.sleep((spectral_int_time/1000000)+0.05)
@@ -198,20 +220,21 @@ def run_experiment():
 	np.savetxt(os.path.join(experiment_name) + "/dark_reference.csv", dark_ref, fmt="%s", delimiter=",")
 	np.savetxt(os.path.join(experiment_name) + "/wl.csv", wl, fmt="%s", delimiter=",")
 	np.savetxt(os.path.join(experiment_name) + "/times.csv", spec_time, fmt="%s", delimiter=",")
+	np.savetxt(os.path.join(experiment_name) + "/ratio.csv", ratio, fmt="%s", delimiter=",")
 	logger.info("Spectral data saved as: " + os.path.join(experiment_name) + "/spectral_results.csv")
 	
 ###############
 ## RUNNING CODE ##
 ###############
 input("Close light shutter and push enter . . . ")
-time.sleep(0.5)
+time.sleep(1)
 start_dark_reference()
 input("Open light shutter and push enter . . . ")
 input("Start dilution pump and push enter when ready to take reference . . .")
 start_reference()
 logger.info ("Reference Acquired at: " + time.strftime("%H:%M:%S | %d-%m-%Y"))
 input("Push Enter to Start Experiment. . . ")
-run_experiment()
+start_experiment()
 Pump1.disconnect()
 Pump2.disconnect()
 exit()
