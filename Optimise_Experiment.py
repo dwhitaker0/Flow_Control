@@ -25,7 +25,7 @@ spectral_int_time =  float(input("Spectral Integration Time (Seconds): "))
 start_time = float(time.time())
 today = datetime.date.today()  
 todaystr = today.isoformat() 
-experiment_name = "./data/" + todaystr + "/" + experiment_name
+#experiment_name = "./data/" + todaystr + "/" + experiment_name
 root_experiment_name = "./data/" + todaystr + "/" + experiment_name
 spectral_int_time = float(spectral_int_time * 1000000)
 experiment_number = 1
@@ -49,12 +49,12 @@ g = 0.5		#NM algorithm factor
 k = 1.5 #NM algorithm factor
 d = 0.5			#NM algorithm factor
 
-if os.path.exists(experiment_name):
+if os.path.exists(root_experiment_name):
 		print("Experiment already exists . . . . exiting")
 		time.sleep (5)
 		sys.exit()
 else:
-	os.makedirs(experiment_name)
+	os.makedirs(root_experiment_name)
 
 ###################################
 #############	
@@ -64,7 +64,7 @@ else:
 log_formatter = logging.Formatter('%(asctime)s %(name)-12s %(levelname)-8s %(message)s', datefmt='%d/%m/%Y %H:%M:%S')
 
 #File to log to
-logFile = os.path.join(experiment_name) + "/logfile.txt"
+logFile = os.path.join(root_experiment_name) + "/logfile.txt"
 
 #Setup File handler
 file_handler = logging.FileHandler(logFile)
@@ -175,7 +175,7 @@ def start_experiment():
 	
 	stored_exeption = None
 	
-	experiment_name = root_experiment_name + "/" + str(experiment_number)
+	experiment_name = os.path.join(root_experiment_name, experiment_number)
 	
 	if os.path.exists(experiment_name):
 		print("Experiment already exists . . . . exiting")
