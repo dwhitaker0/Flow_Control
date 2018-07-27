@@ -14,8 +14,9 @@ import numpy as np
 import serial
 import Python_ChemFuncts as CF
 
-
+###################################
 ############USER INPUT###############
+###################################
 experiment_name = input("Enter Experiment Name: ")
 experiment_time = float(input("How long should the experiment run? (Minutes) "))
 experiment_time = float(experiment_time * 60)
@@ -38,16 +39,22 @@ initial_step_x = input("Initial Step X: ") #0.1
 initial_step_x = float(initial_step_x)
 initial_step_y = input("Initial Step Y: ") #0.1
 initial_step_y = float(initial_step_y)
+
+col_names =['Flow 1', 'Flow 2', 'Ratio']
+
+
+###Algorithm Variables #####
+
 max_iterations = 10
 n = 2 #Number of variables
-col_names =['Flow 1', 'Flow 2', 'Ratio']
+no_improv_thresh = 1
 no_improv_break = 3
 
-a = 1	#NM algorithm factor
-b = 2	#NM algorithm factor
+a = 1		#NM algorithm factor
+b = 2		#NM algorithm factor
 g = 0.5		#NM algorithm factor
-k = 1.5 #NM algorithm factor
-d = 0.5			#NM algorithm factor
+k = 1.5 	#NM algorithm factor
+d = 0.5		#NM algorithm factor
 
 if os.path.exists(root_experiment_name):
 		print("Experiment already exists . . . . exiting")
@@ -57,6 +64,9 @@ else:
 	os.makedirs(root_experiment_name)
 
 ###################################
+###################################
+###################################
+
 #############	
 ##Set up logging##
 #############
@@ -83,13 +93,14 @@ logger.setLevel(logging.INFO)
 #Add both Handlers
 logger.addHandler(file_handler)
 #logger.addHandler(stream_handler)
+
 #################
 ##Connect to machines##
 #################
 
 #Pump
 
-Pump1 = PHDPump.sPump("COM6")
+Pump1 = PHDPump.sPump("COM6") ##Change COM to where pump is connected
 Pump2 = PHDPump.sPump("COM8")
 #Dilution_pump = connect_here
 logger.info("Connected to Pumps")
@@ -99,30 +110,11 @@ specdevs = sb.list_devices()
 spec = sb.Spectrometer(specdevs[0])
 logger.info("Connected to: " + str(specdevs[0]))
 
-
-def start_dark_reference():
-	global dark_ref
-	spec.integration_time_micros(spectral_int_time)
-	dark_ref = spec.intensities()
-
-
-def start_reference():
-	global reference
-	#Dilution_pump.start()
-	#time.sleep(10)
-	spec.integration_time_micros(spectral_int_time)
-	reference = spec.intensities()
-	#time.sleep(1)
-	#Dilution_pump.stop()
-	
-def find_nearest(array, value):
-    array = np.asarray(array)
-    idx = (np.abs(array - value)).argmin()
-    return array[idx]
-
+#####################################
 #############Set up plotting ##############
+#####################################
 
-	#QtGui.QApplication.setGraphicsSystem('raster')
+#QtGui.QApplication.setGraphicsSystem('raster')
 app = QtGui.QApplication([])
 mw = QtGui.QMainWindow()
 mw.setWindowTitle("Flow Experimental System")
@@ -151,14 +143,37 @@ pw2.enableAutoRange(enable=True)
 pw2.setLabel('left', 'Ratio', units='Arbitr. Units')
 pw2.setLabel('bottom', 'Time', units='s')
 
-#######INITIALISE Optim ALGORITHM#####################
-iterations =  0
-no_improv_thresh = 1
+######################################
+######################################
+######################################
 
-Results	 = pd.DataFrame()
+
+
 #To initialise simplex a starting co-ordinate is required (Xin), n+1 points are generated with step_size (initial_step_x & y) away from Xin
 
 #####################################
+
+def start_dark_reference():
+	global dark_ref
+	spec.integration_time_micros(spectral_int_time)
+	dark_ref = spec.intensities()
+
+
+def start_reference():
+	global reference
+	#Dilution_pump.start()
+	#time.sleep(10)
+	spec.integration_time_micros(spectral_int_time)
+	reference = spec.intensities()
+	#time.sleep(1)
+	#Dilution_pump.stop()
+	
+def find_nearest(array, value):
+    array = np.asarray(array)
+    idx = (np.abs(array - value)).argmin()
+    return array[idx]
+
+
 
 def start_experiment():
 	global wl
@@ -201,11 +216,7 @@ def start_experiment():
 	Pump2.set_flow_rate(pump_flow2)
 	Pump1.start()
 	Pump2.start()
-	
 
-	
-	
-	
 	
 	while (float(time.time()) < start_time+float(experiment_time)):
 		try:	
@@ -261,12 +272,16 @@ def start_experiment():
 	np.savetxt(os.path.join(experiment_name) + "/times.csv", spec_time, fmt="%s", delimiter=",")
 	np.savetxt(os.path.join(experiment_name) + "/ratio.csv", ratio, fmt="%s", delimiter=",")
 	logger.info("Spectral data saved as: " + os.path.join(experiment_name) + "/spectral_results.csv")
-	iteration_result = np.mean(ratio[-len(ratio * 0.2): ])
+	iteration_result = np.median(ratio[-len(ratio * 0.2): ])
 	experiment_number = experiment_number + 1
 
-##############
-#EVALUATE RESONSE AT Initial Points
-##############
+#############
+####Begin#####
+#############
+
+iterations =  0
+Results	 = pd.DataFrame()
+
 input("Close light shutter and push enter . . . ")
 time.sleep(1)
 start_dark_reference()
@@ -298,11 +313,11 @@ print(Results)
 #p1.setData(y=np.array(Results.iloc[:,0]), x=np.array(Results.iloc[:,1]))
 
 ##############
-no_improv = 0 
-
-###############
 
 ###########OPTIMISATION ALGORITHM###############
+
+no_improv = 0 
+
 
 while iterations < max_iterations:
 	
@@ -346,7 +361,7 @@ while iterations < max_iterations:
 	
 	start_experiment()
 
-	Res_Xr =  iteration_result ##User Inserts Result##
+	Res_Xr =  iteration_result 
 
 	Results = Results.append(pd.DataFrame([(pump_flow1, pump_flow2, iteration_result)], columns=col_names), ignore_index=True)
 	print(Results)
@@ -535,9 +550,3 @@ Pump1.disconnect()
 Pump1.disconnect()
 exit()
 
-
-
-
-
-
-	
