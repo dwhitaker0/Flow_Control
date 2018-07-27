@@ -26,7 +26,7 @@ start_time = float(time.time())
 today = datetime.date.today()  
 todaystr = today.isoformat() 
 #experiment_name = "./data/" + todaystr + "/" + experiment_name
-root_experiment_name = "./data/" + todaystr + "/" + experiment_name
+root_experiment_name = "./data/" + todaystr + "/" + str(experiment_name)
 spectral_int_time = float(spectral_int_time * 1000000)
 experiment_number = 1
 
