@@ -175,7 +175,7 @@ def start_experiment():
 	
 	stored_exeption = None
 	
-	experiment_name = os.path.join(root_experiment_name, experiment_number)
+	experiment_name = root_experiment_name + "/" + experiment_number
 	
 	if os.path.exists(experiment_name):
 		print("Experiment already exists . . . . exiting")
