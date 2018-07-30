@@ -56,6 +56,18 @@ g = 0.5		#NM algorithm factor
 k = 1.5 	#NM algorithm factor
 d = 0.5		#NM algorithm factor
 
+## Constraints
+
+x_max = 1
+x_min = 0.05
+
+y_max = 1
+y_min = 0.05
+
+
+
+
+
 if os.path.exists(root_experiment_name):
 		print("Experiment already exists . . . . exiting")
 		time.sleep (5)
@@ -356,6 +368,9 @@ while iterations < max_iterations:
 	Xr = centroid + (centroid - h)
 	print ("Next Point = " + "\n" + str(Xr))
 	
+	Xr.iloc[0] = np.clip(Xr.iloc[0], x_min, x_max)
+	Xr.iloc[1] = np.clip(Xr.iloc[1], y_min, y_max)
+	
 	pump_flow1 = Xr.iloc[0]
 	pump_flow2 = Xr.iloc[1]
 	
@@ -386,6 +401,9 @@ while iterations < max_iterations:
 	if Res_Xr > yield_l:
 		Xe = centroid + b*(centroid - h)
 		print ("Next Point = " + "\n" + str(Xe))
+		
+		Xe.iloc[0] = np.clip(Xe.iloc[0], x_min, x_max)
+		Xe.iloc[1] = np.clip(Xe.iloc[1], y_min, y_max)
 		
 		pump_flow1 = Xe.iloc[0]
 		pump_flow2 = Xe.iloc[1]
@@ -420,6 +438,9 @@ while iterations < max_iterations:
 		Xic = centroid - g*(Xr - centroid)
 		print ("Next Point = " + "\n" + str(Xic))
 		
+		Xic.iloc[0] = np.clip(Xic.iloc[0], x_min, x_max)
+		Xic.iloc[1] = np.clip(Xic.iloc[1], y_min, y_max)
+		
 		pump_flow1 = Xic.iloc[0]
 		pump_flow2 = Xic.iloc[1]
 	
@@ -444,7 +465,8 @@ while iterations < max_iterations:
 			Xredh = l + d*(h - l)
 			print ("Next Set Points = " + "\n" + str(Xredh))
 
-
+			Xredh.iloc[0] = np.clip(Xredh.iloc[0], x_min, x_max)
+			Xredh.iloc[1] = np.clip(Xredh.iloc[1], y_min, y_max)
 			
 			pump_flow1 = Xredh.iloc[0]
 			pump_flow2 = Xredh.iloc[1]
@@ -461,6 +483,9 @@ while iterations < max_iterations:
 
 			Xreds = l + d*(s - l)
 			print ("Next Set Points = " + "\n" + str(Xreds))
+			
+			Xreds.iloc[0] = np.clip(Xreds.iloc[0], x_min, x_max)
+			Xreds.iloc[1] = np.clip(Xreds.iloc[1], y_min, y_max)
 
 			pump_flow1 = Xreds.iloc[0]
 			pump_flow2 = Xreds.iloc[1]
@@ -487,6 +512,9 @@ while iterations < max_iterations:
 		#Xoc = k*centroid - g*h
 		Xoc = centroid + g*(Xr - centroid)
 		print ("Next Point = " + "\n" + str(Xoc))
+		
+		Xoc.iloc[0] = np.clip(Xoc.iloc[0], x_min, x_max)
+		Xoc.iloc[1] = np.clip(Xoc.iloc[1], y_min, y_max)
 
 		pump_flow1 = Xoc.iloc[0]
 		pump_flow2 = Xoc.iloc[1]
@@ -512,6 +540,9 @@ while iterations < max_iterations:
 
 			Xredh = l + d*(h - l)
 			print ("Next Set Points = "  + "\n" + str(Xredh))
+			
+			Xredh.iloc[0] = np.clip(Xredh.iloc[0], x_min, x_max)
+			Xredh.iloc[1] = np.clip(Xredh.iloc[1], y_min, y_max)
 
 			pump_flow1 = Xredh.iloc[0]
 			pump_flow2 = Xredh.iloc[1]
@@ -528,6 +559,9 @@ while iterations < max_iterations:
 
 			Xreds = l + d*(s - l)
 			print ("Next Set Points = "+ "\n" + str(Xreds))
+			
+			Xreds.iloc[0] = np.clip(Xreds.iloc[0], x_min, x_max)
+			Xreds.iloc[1] = np.clip(Xreds.iloc[1], y_min, y_max)
 		
 			pump_flow1 = Xreds.iloc[0]
 			pump_flow2 = Xreds.iloc[1]
