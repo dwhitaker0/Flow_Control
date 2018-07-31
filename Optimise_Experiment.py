@@ -47,7 +47,7 @@ col_names =['Flow 1', 'Flow 2', 'Ratio']
 
 max_iterations = 10
 n = 2 #Number of variables
-no_improv_thresh = 1
+no_improv_thresh = 0.1
 no_improv_break = 3
 
 a = 1		#NM algorithm factor
