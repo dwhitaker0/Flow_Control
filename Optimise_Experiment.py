@@ -24,8 +24,8 @@ pump_flow1 =   0 #float(input("Pump1 Flow Rate (ml/min): "))
 pump_flow2 =   0 #float(input("Pump2 Flow Rate (ml/min): "))
 spectral_int_time =  float(input("Spectral Integration Time (Seconds): "))
 start_time = float(time.time())
-today = datetime.date.today()  
-todaystr = today.isoformat() 
+today = datetime.date.today()
+todaystr = today.isoformat()
 #experiment_name = "./data/" + todaystr + "/" + experiment_name
 root_experiment_name = "./data/" + todaystr + "/" + str(experiment_name)
 spectral_int_time = float(spectral_int_time * 1000000)
@@ -40,7 +40,7 @@ initial_step_x = float(initial_step_x)
 initial_step_y = input("Initial Step Y: ") #0.1
 initial_step_y = float(initial_step_y)
 
-col_names =['Flow 1', 'Flow 2', 'Ratio']
+col_names =['Flow 1', 'Flow 2', 'obj_f']
 
 
 ###Algorithm Variables #####
@@ -79,7 +79,7 @@ else:
 ###################################
 ###################################
 
-#############	
+#############
 ##Set up logging##
 #############
 
@@ -138,7 +138,7 @@ l = QtGui.QVBoxLayout()
 cw.setLayout(l)
 
 
-pw = pg.PlotWidget(name="UV Spectrum") 
+pw = pg.PlotWidget(name="UV Spectrum")
 l.addWidget(pw)
 pw2 = pg.PlotWidget(name="Lambda Max Vs Time")
 l.addWidget(pw2)
@@ -150,9 +150,9 @@ pw.enableAutoRange(enable=True)
 pw.setYRange(-2,2,padding=0)
 pw.setLabel('left', 'Absorbance', units='Arbitr. Units')
 pw.setLabel('bottom', 'Wavelength', units='nm')
-p2 = pw2.plot(pen=2, symbol = 'o', symbolPen = 2, title="Ratio Vs Time")
+p2 = pw2.plot(pen=2, symbol = 'o', symbolPen = 2, title="obj_f Vs Time")
 pw2.enableAutoRange(enable=True)
-pw2.setLabel('left', 'Ratio', units='Arbitr. Units')
+pw2.setLabel('left', 'obj_f', units='Arbitr. Units')
 pw2.setLabel('bottom', 'Time', units='s')
 
 ######################################
@@ -179,7 +179,7 @@ def start_reference():
 	reference = spec.intensities()
 	#time.sleep(1)
 	#Dilution_pump.stop()
-	
+
 def find_nearest(array, value):
     array = np.asarray(array)
     idx = (np.abs(array - value)).argmin()
@@ -199,11 +199,11 @@ def start_experiment():
 	global peak_ratio
 	global iteration_result
 	global experiment_number
-	
+
 	stored_exeption = None
-	
+
 	experiment_name = root_experiment_name + "/" + str(experiment_number)
-	
+
 	if os.path.exists(experiment_name):
 		print("Experiment already exists . . . . exiting")
 		time.sleep (5)
@@ -215,12 +215,12 @@ def start_experiment():
 	raw_spectral_data = spec.wavelengths()
 	Abs_spectral_data = spec.wavelengths()
 	#SGderiv = spec.wavelengths()
-	spec_time = np.array(0) 
+	spec_time = np.array(0)
 	start_time = time.time()
 	lambda_max = np.array(0)
-	ratio = np.array(0)
+	obj_f = np.array(0)
 	logger.info ("Experiment started at: " + time.strftime("%H:%M:%S | %d-%m-%Y"))
-	
+
 	#set-up and start pump
 	logger.info("Setting Pump 1 @ " + str(pump_flow1))
 	Pump1.set_flow_rate(pump_flow1)
@@ -229,10 +229,10 @@ def start_experiment():
 	Pump1.start()
 	Pump2.start()
 
-	
+
 	while (float(time.time()) < start_time+float(experiment_time)):
-		try:	
-		
+		try:
+
 			spectrum = spec.intensities()
 			abs_spectrum = np.log10((reference - dark_ref)/(spectrum - dark_ref))
 			Where_Nan = np.isnan(abs_spectrum)
@@ -241,32 +241,33 @@ def start_experiment():
 			abs_spectrum[Where_Inf] = 0
 			smooth = CF.whitsm(abs_spectrum, lmda = 100)
 			deriv_spectrum = CF.savitzky_golay(smooth, window_size = 15, order = 1, deriv=1, rate=1)
-			sp_time = time.time() 
+			sp_time = time.time()
 			raw_spectral_data = np.vstack((raw_spectral_data, spectrum))
 			Abs_spectral_data = np.vstack((Abs_spectral_data, abs_spectrum))
 			spec_time =  np.append(spec_time, [sp_time-start_time])
 			curr_lambda_max = np.amax(spectrum - reference)
-			lambda_max = np.append(lambda_max, [curr_lambda_max])			
+			lambda_max = np.append(lambda_max, [curr_lambda_max])
 			#SGderiv = np.vstack(SGderiv, deriv_spectrum)
-			ratio = np.append(ratio, (deriv_spectrum[wl == find_nearest(wl,260)] + deriv_spectrum[wl == find_nearest(wl,290)] ) / deriv_spectrum[wl == find_nearest(wl,310)])
-			
-			
+			ratio = np.sqrt((((deriv_spectrum[wl == find_nearest(wl,260)])^2 + (deriv_spectrum[wl == find_nearest(wl,290)])^2) / (deriv_spectrum[wl == find_nearest(wl,310)])^2))
+			obj_f = np.append(obj_f, ((0.25 * (1/(pump_flow1+pump_flow2)))+(ratio)-(0.15 * 1/(pump_flow2/pump_flow1))))
+
+
 			#Update Plot
-			
+
 			#p1.setData(wl,np.log10((reference - dark_ref)/(spectrum - dark_ref)))
 			p1.setData(wl,smooth)
-			p2.setData(spec_time, ratio)
+			p2.setData(spec_time, obj_f)
 			pg.QtGui.QApplication.processEvents()
-			
+
 			time.sleep((spectral_int_time/1000000)+0.05)
-			
+
 			if stored_exeption:
 				break
-			
+
 		except KeyboardInterrupt:
 			logger.info("Experiment Interrupted at: " + time.strftime("%H:%M:%S | %d-%m-%Y"))
 			stored_exeption = sys.exc_info()
-		
+
 	logger.info("Experiment complete at: " + time.strftime("%H:%M:%S | %d-%m-%Y"))
 	Pump1.stop()
 	Pump2.stop()
@@ -282,9 +283,9 @@ def start_experiment():
 	np.savetxt(os.path.join(experiment_name) + "/dark_reference.csv", dark_ref, fmt="%s", delimiter=",")
 	np.savetxt(os.path.join(experiment_name) + "/wl.csv", wl, fmt="%s", delimiter=",")
 	np.savetxt(os.path.join(experiment_name) + "/times.csv", spec_time, fmt="%s", delimiter=",")
-	np.savetxt(os.path.join(experiment_name) + "/ratio.csv", ratio, fmt="%s", delimiter=",")
+	np.savetxt(os.path.join(experiment_name) + "/obj_f.csv", obj_f, fmt="%s", delimiter=",")
 	logger.info("Spectral data saved as: " + os.path.join(experiment_name) + "/spectral_results.csv")
-	iteration_result = np.median(ratio[-len(ratio * 0.2): ])
+	iteration_result = np.median(obj_f[-len(obj_f * 0.2): ])
 	experiment_number = experiment_number + 1
 
 #############
@@ -303,8 +304,8 @@ start_reference()
 logger.info ("Reference Acquired at: " + time.strftime("%H:%M:%S | %d-%m-%Y"))
 input("Push Enter to Start Experiment. . . ")
 
-pump_flow1 = initial_x 
-pump_flow2 = initial_y 
+pump_flow1 = initial_x
+pump_flow2 = initial_y
 
 start_experiment()
 Results = pd.DataFrame([(pump_flow1,pump_flow2,iteration_result)], columns=col_names)
@@ -315,7 +316,7 @@ pump_flow2 = initial_y
 start_experiment()
 Results = Results.append(pd.DataFrame([(pump_flow1, pump_flow2, iteration_result)], columns=col_names), ignore_index=True)
 
-pump_flow1 = initial_x 
+pump_flow1 = initial_x
 pump_flow2 = initial_y + initial_step_y
 
 start_experiment()
@@ -328,21 +329,21 @@ print(Results)
 
 ###########OPTIMISATION ALGORITHM###############
 
-no_improv = 0 
+no_improv = 0
 
 
 while iterations < max_iterations:
-	
-	sorted = Results.sort_values(by='Ratio', ascending = False)
+
+	sorted = Results.sort_values(by='obj_f', ascending = False)
 	yield_h = sorted.iloc[n,n]
 	yield_s = sorted.iloc[n-1,n]
 	yield_l = sorted.iloc[n-2,n]
-	 
+
 	if yield_l - yield_s >= no_improv_thresh:
 		no_improv = 0
 	else:
 		no_improv = no_improv + 1
-		
+
 	if no_improv == no_improv_break:
 		print ("No Further Improvement, exiting......")
 		logger.info("No Further Improvement, experiment stopped" + time.strftime("%H:%M:%S | %d-%m-%Y"))
@@ -352,8 +353,8 @@ while iterations < max_iterations:
 		print (Results)
 		np.savetxt(os.path.join(root_experiment_name) + "/results.csv", Results , fmt="%s", delimiter=",")
 		break
-	 
-	 
+
+
 	h = sorted.iloc[n,:n]
 	s = sorted.iloc[n-1,:n]
 	l = sorted.iloc[n-2,:n]
@@ -367,21 +368,21 @@ while iterations < max_iterations:
 
 	Xr = centroid + (centroid - h)
 	print ("Next Point = " + "\n" + str(Xr))
-	
+
 	Xr.iloc[0] = np.clip(Xr.iloc[0], x_min, x_max)
 	Xr.iloc[1] = np.clip(Xr.iloc[1], y_min, y_max)
-	
+
 	pump_flow1 = Xr.iloc[0]
 	pump_flow2 = Xr.iloc[1]
-	
+
 	start_experiment()
 
-	Res_Xr =  iteration_result 
+	Res_Xr =  iteration_result
 
 	Results = Results.append(pd.DataFrame([(pump_flow1, pump_flow2, iteration_result)], columns=col_names), ignore_index=True)
 	print(Results)
 	np.savetxt(os.path.join(root_experiment_name) + "/results.csv", Results , fmt="%s", delimiter=",")
-	#p1.setData(y=np.array(Results.iloc[:,0]), x=np.array(Results.iloc[:,1]))  
+	#p1.setData(y=np.array(Results.iloc[:,0]), x=np.array(Results.iloc[:,1]))
 
 
 
@@ -401,13 +402,13 @@ while iterations < max_iterations:
 	if Res_Xr > yield_l:
 		Xe = centroid + b*(centroid - h)
 		print ("Next Point = " + "\n" + str(Xe))
-		
+
 		Xe.iloc[0] = np.clip(Xe.iloc[0], x_min, x_max)
 		Xe.iloc[1] = np.clip(Xe.iloc[1], y_min, y_max)
-		
+
 		pump_flow1 = Xe.iloc[0]
 		pump_flow2 = Xe.iloc[1]
-	
+
 		start_experiment()
 		#Res_Xe = float(raw_input("Xe: "))
 		Res_Xe = iteration_result
@@ -428,7 +429,7 @@ while iterations < max_iterations:
 			iterations = iterations + 1
 			continue
 
-	  
+
 
 ####Inside Contraction####
 
@@ -437,13 +438,13 @@ while iterations < max_iterations:
 		#Xic = g*centroid + g*h
 		Xic = centroid - g*(Xr - centroid)
 		print ("Next Point = " + "\n" + str(Xic))
-		
+
 		Xic.iloc[0] = np.clip(Xic.iloc[0], x_min, x_max)
 		Xic.iloc[1] = np.clip(Xic.iloc[1], y_min, y_max)
-		
+
 		pump_flow1 = Xic.iloc[0]
 		pump_flow2 = Xic.iloc[1]
-	
+
 		start_experiment()
 
 		Res_Xic = iteration_result
@@ -467,13 +468,13 @@ while iterations < max_iterations:
 
 			Xredh.iloc[0] = np.clip(Xredh.iloc[0], x_min, x_max)
 			Xredh.iloc[1] = np.clip(Xredh.iloc[1], y_min, y_max)
-			
+
 			pump_flow1 = Xredh.iloc[0]
 			pump_flow2 = Xredh.iloc[1]
-	
+
 			start_experiment()
 			Res_Xredh = iteration_result
-			
+
 			Results = Results.append(pd.DataFrame([(Xic.iloc[0], Xic.iloc[1], Res_Xic)], columns=col_names), ignore_index=True)
 			Results = Results.append(pd.DataFrame([(Xredh.iloc[0], Xredh.iloc[1], Res_Xredh)], columns=col_names), ignore_index=True)
 			print(Results)
@@ -483,13 +484,13 @@ while iterations < max_iterations:
 
 			Xreds = l + d*(s - l)
 			print ("Next Set Points = " + "\n" + str(Xreds))
-			
+
 			Xreds.iloc[0] = np.clip(Xreds.iloc[0], x_min, x_max)
 			Xreds.iloc[1] = np.clip(Xreds.iloc[1], y_min, y_max)
 
 			pump_flow1 = Xreds.iloc[0]
 			pump_flow2 = Xreds.iloc[1]
-	
+
 			start_experiment()
 			Res_Xreds = iteration_result
 
@@ -499,11 +500,11 @@ while iterations < max_iterations:
 			np.savetxt(os.path.join(root_experiment_name) + "/results.csv", Results , fmt="%s", delimiter=",")
 			#p1.setData(y=np.array(Results.iloc[:,0]), x=np.array(Results.iloc[:,1]))
 
-			
+
 			iterations = iterations + 1
 			continue
 
-						
+
 
 ####Outside Contraction####
 
@@ -512,16 +513,16 @@ while iterations < max_iterations:
 		#Xoc = k*centroid - g*h
 		Xoc = centroid + g*(Xr - centroid)
 		print ("Next Point = " + "\n" + str(Xoc))
-		
+
 		Xoc.iloc[0] = np.clip(Xoc.iloc[0], x_min, x_max)
 		Xoc.iloc[1] = np.clip(Xoc.iloc[1], y_min, y_max)
 
 		pump_flow1 = Xoc.iloc[0]
 		pump_flow2 = Xoc.iloc[1]
-	
+
 		start_experiment()
 		Res_Xoc = iteration_result
-	  
+
 
 
 #Final Condition#
@@ -540,13 +541,13 @@ while iterations < max_iterations:
 
 			Xredh = l + d*(h - l)
 			print ("Next Set Points = "  + "\n" + str(Xredh))
-			
+
 			Xredh.iloc[0] = np.clip(Xredh.iloc[0], x_min, x_max)
 			Xredh.iloc[1] = np.clip(Xredh.iloc[1], y_min, y_max)
 
 			pump_flow1 = Xredh.iloc[0]
 			pump_flow2 = Xredh.iloc[1]
-	
+
 			start_experiment()
 			Res_Xredh = iteration_result
 
@@ -559,28 +560,27 @@ while iterations < max_iterations:
 
 			Xreds = l + d*(s - l)
 			print ("Next Set Points = "+ "\n" + str(Xreds))
-			
+
 			Xreds.iloc[0] = np.clip(Xreds.iloc[0], x_min, x_max)
 			Xreds.iloc[1] = np.clip(Xreds.iloc[1], y_min, y_max)
-		
+
 			pump_flow1 = Xreds.iloc[0]
 			pump_flow2 = Xreds.iloc[1]
-	
+
 			start_experiment()
 			Res_Xreds = iteration_result
 
-		
+
 			Results = Results.append(pd.DataFrame([(Xreds.iloc[0], Xreds.iloc[1], Res_Xreds)], columns=col_names), ignore_index=True)
 			print(Results)
 			np.savetxt(os.path.join(root_experiment_name) + "/results.csv", Results , fmt="%s", delimiter=",")
 			#p1.setData(y=np.array(Results.iloc[:,0]), x=np.array(Results.iloc[:,1]))
 
-					
+
 			iterations = iterations + 1
 			continue
-			
+
 np.savetxt(os.path.join(root_experiment_name) + "/results.csv", Results , fmt="%s", delimiter=",")
 Pump1.disconnect()
 Pump1.disconnect()
 exit()
-
